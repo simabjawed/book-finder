@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Book Finder • Alex's Library</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0e14;
+      --panel: #121826;
+      --muted: #6b7280;
+      --text: #e5e7eb;
+      --accent: #7c3aed;
+      --accent-2: #22d3ee;
+      --border: #1f2937;
+      --success: #22c55e;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box }
+    html, body { height: 100% }
+    body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: radial-gradient(1200px 800px at 80% -10%, rgba(124,58,237,.12), transparent 60%), linear-gradient(160deg, #0b0e14 0%, #0b0e14 60%, #0b0e14 100%); color: var(--text); }
+    a { color: var(--accent-2); text-decoration: none }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px }
+    header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding: 12px 0 24px }
+    .logo { display:flex; align-items:center; gap:12px }
+    .logo-badge { width:38px; height:38px; border-radius:12px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); display:grid; place-items:center; font-weight:800; color:#0b0e14 }
+    h1 { font-size: clamp(20px, 3vw, 28px); margin: 0 }
+    .sub { color: var(--muted); font-size: 14px }
+
+    .panel { background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.0)); border:1px solid var(--border); border-radius: 18px; padding: 16px }
+    .search-bar { display:grid; grid-template-columns: 1fr 140px 120px; gap:10px }
+    .row { display:flex; flex-wrap:wrap; align-items:center; gap:10px }
+    input, select, button { height: 42px; border-radius: 12px; border:1px solid var(--border); background:#0f1422; color: var(--text); padding: 0 12px; font: inherit }
+    input::placeholder { color: #93a0b3 }
+    button.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color:#0b0e14; font-weight:700; border:none }
+    button.secondary { background:#101626 }
+    button:disabled { opacity:.6; cursor:not-allowed }
+
+    .filters { margin-top: 10px; display:flex; gap:10px; flex-wrap:wrap }
+    .chip { padding: 8px 10px; border:1px solid var(--border); border-radius: 999px; display:flex; align-items:center; gap:8px; background:#0e1524 }
+
+    .stats { margin: 12px 0 0; color: var(--muted); font-size: 13px }
+
+    .grid { margin-top: 16px; display:grid; grid-template-columns: repeat(4, 1fr); gap: 14px }
+    @media (max-width: 1024px) { .grid { grid-template-columns: repeat(3, 1fr) } }
+    @media (max-width: 720px)  { .grid { grid-template-columns: repeat(2, 1fr) } header { flex-direction: column; align-items: flex-start } .search-bar { grid-template-columns: 1fr } }
+
+    .card { background: #0f1422; border:1px solid var(--border); border-radius: 16px; overflow:hidden; display:flex; flex-direction: column; min-height: 100% }
+    .cover { width: 100%; aspect-ratio: 3/4; object-fit: cover; background: #0c1120 }
+    .empty-cover { display:grid; place-items:center; width:100%; aspect-ratio:3/4; color:#9aa7be; font-size:12px; background: repeating-linear-gradient(45deg,#0c1120,#0c1120 6px,#0d1222 6px,#0d1222 12px) }
+    .card-body { padding: 12px 12px 14px; display:flex; flex-direction:column; gap:6px }
+    .title { font-weight: 700; line-height: 1.2; font-size: 14px }
+    .meta { color: var(--muted); font-size: 12px }
+
+    .footer { margin-top: 18px; display:flex; justify-content: space-between; align-items:center }
+    .pager { display:flex; gap: 8px; align-items:center }
+
+    dialog { border:none; padding:0; border-radius: 18px; width:min(720px, 92vw); background:#0d1323; color:var(--text); box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+    dialog::backdrop { background: rgba(0,0,0,.6) }
+    .modal-head { padding:16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between }
+    .modal-body { padding: 16px; display:grid; grid-template-columns: 180px 1fr; gap:16px }
+    @media (max-width: 640px){ .modal-body { grid-template-columns: 1fr } }
+    .tag { font-size:11px; color:#9aa7be; border:1px dashed #21304a; padding:4px 8px; border-radius:999px }
+
+    .kbd { border:1px solid var(--border); border-bottom-width:3px; border-radius:8px; padding:2px 6px; font-size:12px; color:#b3c0d9 }
+    .help { color:#9aa7be; font-size:12px }
+
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- React via CDN for a no-build demo -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const API = {
+      base: 'https://openlibrary.org/search.json',
+      cover: (id, size = 'M') => `https://covers.openlibrary.org/b/id/${id}-${size}.jpg`,
+      byKey: (key) => `https://openlibrary.org${key}`
+    };
+
+    const useDebounced = (value, delay = 500) => {
+      const [debounced, setDebounced] = React.useState(value);
+      React.useEffect(() => {
+        const t = setTimeout(() => setDebounced(value), delay);
+        return () => clearTimeout(t);
+      }, [value, delay]);
+      return debounced;
+    };
+
+    function App(){
+      const [q, setQ] = React.useState('harry potter');
+      const [mode, setMode] = React.useState('title'); // title | author | subject | isbn
+      const [sort, setSort] = React.useState('relevance'); // relevance | newest | oldest
+      const [lang, setLang] = React.useState(''); // optional language filter
+      const [loading, setLoading] = React.useState(false);
+      const [error, setError] = React.useState('');
+      const [docs, setDocs] = React.useState([]);
+      const [numFound, setNumFound] = React.useState(0);
+      const [page, setPage] = React.useState(1);
+      const [perPage, setPerPage] = React.useState(20);
+      const [selected, setSelected] = React.useState(null); // modal data
+
+      const debouncedQ = useDebounced(q, 500);
+
+      const buildUrl = (p=1) => {
+        const params = new URLSearchParams();
+        // Basic query by mode
+        const key = mode === 'title' ? 'title' : mode === 'author' ? 'author' : mode === 'subject' ? 'subject' : 'isbn';
+        params.set(key, debouncedQ.trim());
+        // Pagination – Open Library supports 'page'. 'limit' may be ignored by the API; we also paginate client-side as fallback.
+        params.set('page', p);
+        params.set('limit', perPage);
+        // Sort
+        if (sort === 'newest') params.set('sort', 'new');
+        if (sort === 'oldest') params.set('sort', 'old');
+        // Language filter (language code like 'eng', 'fre', 'spa')
+        if (lang) params.set('language', lang);
+        return `${API.base}?${params.toString()}`;
+      };
+
+      const fetchBooks = async (p=1) => {
+        if (!debouncedQ.trim()) { setDocs([]); setNumFound(0); return; }
+        try {
+          setLoading(true); setError('');
+          const res = await fetch(buildUrl(p));
+          if (!res.ok) throw new Error(`Network error: ${res.status}`);
+          const data = await res.json();
+          setNumFound(data.numFound || 0);
+          // Prefer server-provided slice; otherwise client-slice to perPage
+          const slice = (data.docs || []).slice(0, perPage);
+          setDocs(slice);
+        } catch (e) {
+          setError(e.message || 'Something went wrong.');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      React.useEffect(() => { setPage(1); fetchBooks(1); }, [debouncedQ, mode, sort, lang, perPage]);
+
+      const next = () => { const p = page + 1; setPage(p); fetchBooks(p); };
+      const prev = () => { if (page === 1) return; const p = page - 1; setPage(p); fetchBooks(p); };
+
+      const ResultCard = ({b}) => {
+        const title = b.title || 'Untitled';
+        const authors = (b.author_name || []).slice(0,3).join(', ');
+        const year = b.first_publish_year || '—';
+        const subjects = (b.subject || []).slice(0,3);
+        const coverId = b.cover_i;
+        const coverUrl = coverId ? API.cover(coverId, 'M') : null;
+        return (
+          <div className="card">
+            {coverUrl ? (
+              <img className="cover" src={coverUrl} alt={title} loading="lazy" />
+            ) : (
+              <div className="empty-cover">No cover</div>
+            )}
+            <div className="card-body">
+              <div className="title" title={title}>{title}</div>
+              <div className="meta">{authors || 'Unknown author'} • {year}</div>
+              <div className="row" style={{gap:6, flexWrap:'wrap', marginTop:6}}>
+                {subjects.map((s,i) => <span key={i} className="tag">{s}</span>)}
+              </div>
+              <div className="row" style={{marginTop:8, justifyContent:'space-between'}}>
+                <a href={API.byKey(b.key)} target="_blank" rel="noreferrer">Open Library ↗</a>
+                <button className="secondary" onClick={() => setSelected(b)}>Details</button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const Modal = ({book, onClose}) => {
+        const coverId = book.cover_i;
+        const coverUrl = coverId ? API.cover(coverId, 'L') : null;
+        const lines = [
+          ['Title', book.title],
+          ['Authors', (book.author_name||[]).join(', ')],
+          ['First published', book.first_publish_year],
+          ['Edition count', book.edition_count],
+          ['Languages', (book.language||[]).join(', ')],
+          ['Subjects', (book.subject||[]).slice(0,12).join(', ')],
+          ['Publisher', (book.publisher||[]).slice(0,4).join(', ')],
+        ];
+
+        return (
+          <dialog open>
+            <div className="modal-head">
+              <strong>Book details</strong>
+              <button className="secondary" onClick={onClose}>Close</button>
+            </div>
+            <div className="modal-body">
+              {coverUrl ? <img src={coverUrl} alt={book.title} style={{width:'100%', borderRadius:12}}/> : <div className="empty-cover">No cover</div>}
+              <div>
+                <h2 style={{marginTop:0}}>{book.title}</h2>
+                <div className="row" style={{gap:8, flexWrap:'wrap'}}>
+                  { (book.isbn||[]).slice(0,4).map((i,idx)=>(<span key={idx} className="chip">ISBN: {i}</span>)) }
+                </div>
+                <div style={{marginTop:12, display:'grid', gap:8}}>
+                  {lines.map(([k,v],i)=> (
+                    <div key={i} className="row" style={{justifyContent:'space-between'}}>
+                      <span className="meta" style={{width:140}}>{k}</span>
+                      <span>{v || '—'}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="row" style={{marginTop:14, gap:10}}>
+                  <a className="chip" href={API.byKey(book.key)} target="_blank" rel="noreferrer">View on Open Library ↗</a>
+                </div>
+              </div>
+            </div>
+          </dialog>
+        );
+      };
+
+      return (
+        <div className="container">
+          <header>
+            <div className="logo">
+              <div className="logo-badge">📚</div>
+              <div>
+                <h1>Alex's Book Finder</h1>
+                <div className="sub">Search by title, author, subject, or ISBN. Quick, clean, and keyboard-friendly.</div>
+              </div>
+            </div>
+            <div className="help">Press <span className="kbd">/</span> to focus search</div>
+          </header>
+
+          <section className="panel">
+            <div className="search-bar">
+              <input
+                id="search"
+                placeholder={`Search by ${mode}…`}
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                onKeyDown={e => { if (e.key==='Enter') fetchBooks(page); }}
+                autoFocus
+              />
+              <select value={mode} onChange={e=> setMode(e.target.value)}>
+                <option value="title">Title</option>
+                <option value="author">Author</option>
+                <option value="subject">Subject</option>
+                <option value="isbn">ISBN</option>
+              </select>
+              <button className="primary" disabled={loading} onClick={() => fetchBooks(1)}>{loading ? 'Searching…' : 'Search'}</button>
+            </div>
+
+            <div className="filters">
+              <select value={sort} onChange={e=> setSort(e.target.value)}>
+                <option value="relevance">Sort: Relevance</option>
+                <option value="newest">Sort: Newest</option>
+                <option value="oldest">Sort: Oldest</option>
+              </select>
+              <select value={lang} onChange={e=> setLang(e.target.value)}>
+                <option value="">Any language</option>
+                <option value="eng">English</option>
+                <option value="fre">French</option>
+                <option value="ger">German</option>
+                <option value="spa">Spanish</option>
+                <option value="ita">Italian</option>
+                <option value="hin">Hindi</option>
+                <option value="jpn">Japanese</option>
+              </select>
+              <select value={perPage} onChange={e=> setPerPage(Number(e.target.value))}>
+                <option value="10">10 per page</option>
+                <option value="20">20 per page</option>
+                <option value="40">40 per page</option>
+              </select>
+            </div>
+
+            <div className="stats">
+              {error && <span style={{color:'var(--danger)'}}>{error}</span>}
+              {!error && (
+                <>
+                  <span>{numFound.toLocaleString()} matches</span>
+                  {docs.length > 0 && <span> • showing {docs.length} results (page {page})</span>}
+                </>
+              )}
+            </div>
+
+            <div className="grid" aria-live="polite">
+              {(!loading && docs.length === 0 && !error) && (
+                <div className="sub" style={{gridColumn:'1/-1'}}>No results yet. Try a different query.</div>
+              )}
+              {docs.map((b, idx) => <ResultCard key={`${b.key}-${idx}`} b={b} />)}
+            </div>
+
+            <div className="footer">
+              <div className="help">Tip: Use specific phrases like <span className="kbd">author:J. K. Rowling</span> or select Author above.</div>
+              <div className="pager">
+                <button className="secondary" onClick={prev} disabled={page===1 || loading}>Prev</button>
+                <div className="chip">Page {page}</div>
+                <button className="secondary" onClick={next} disabled={loading || docs.length < perPage}>Next</button>
+              </div>
+            </div>
+          </section>
+
+          <footer className="sub" style={{ marginTop: '16px' }}>
+            Built for the Take‑Home Challenge • Uses <a href="https://openlibrary.org/developers/api" target="_blank" rel="noreferrer">Open Library Search API</a> • No auth required
+          </footer>
+
+          {selected && <Modal book={selected} onClose={() => setSelected(null)} />}
+        </div>
+      );
+    }
+
+    function focusSlashShortcut(){
+      const onKey = (e) => {
+        if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA'){
+          const el = document.getElementById('search');
+          if (el) { e.preventDefault(); el.focus(); }
+        }
+      };
+      React.useEffect(()=>{
+        window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey);
+      }, []);
+    }
+
+    function Root(){
+      focusSlashShortcut();
+      return <App/>;
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<Root/>);
+  </script>
+</body>
+</html>
